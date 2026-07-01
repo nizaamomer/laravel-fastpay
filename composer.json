@@ -1,0 +1,76 @@
+{
+    "name": "nizaamomer/laravel-fastpay",
+    "description": "Modern Laravel SDK for FastPay Iraq: payment gateway initiation, validation, refunds, QR vending payments, IPN handling and mobile deep links.",
+    "keywords": [
+        "laravel",
+        "fastpay",
+        "fast-pay",
+        "payment",
+        "gateway",
+        "qr",
+        "refund",
+        "sdk",
+        "iraq"
+    ],
+    "homepage": "https://github.com/nizaamomer/laravel-fastpay",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Nizaam Omer",
+            "email": "nizaamomer@gmail.com",
+            "homepage": "https://nizaamomer.com",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "illuminate/console": "^11.0 || ^12.0 || ^13.0",
+        "illuminate/contracts": "^11.0 || ^12.0 || ^13.0",
+        "illuminate/database": "^11.0 || ^12.0 || ^13.0",
+        "illuminate/http": "^11.0 || ^12.0 || ^13.0",
+        "illuminate/support": "^11.0 || ^12.0 || ^13.0",
+        "spatie/laravel-package-tools": "^1.16"
+    },
+    "require-dev": {
+        "larastan/larastan": "^2.9 || ^3.0",
+        "laravel/pint": "^1.17",
+        "orchestra/testbench": "^9.0 || ^10.0",
+        "pestphp/pest": "^3.0",
+        "pestphp/pest-plugin-laravel": "^3.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Nizaamomer\\LaravelFastpay\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Nizaamomer\\LaravelFastpay\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "vendor/bin/pest",
+        "test-coverage": "vendor/bin/pest --coverage",
+        "analyse": "vendor/bin/phpstan analyse",
+        "format": "vendor/bin/pint"
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Nizaamomer\\LaravelFastpay\\FastpayServiceProvider"
+            ],
+            "aliases": {
+                "FastpayPayment": "Nizaamomer\\LaravelFastpay\\Facades\\FastpayPayment",
+                "FastpayQr": "Nizaamomer\\LaravelFastpay\\Facades\\FastpayQr"
+            }
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
