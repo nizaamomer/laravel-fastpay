@@ -9,9 +9,10 @@ declare(strict_types=1);
  * need into your own app. It assumes an App\Models\Order with a `total`
  * column.
  *
- * Covers every public method the package exposes: initiating a gateway
- * payment, the IPN webhook, validating, refunding, refund status, and the
- * QR vending flow (generate / validate / refund / mobile deep link).
+ * Covers every public method across all three parts: Part 1 — Payment
+ * Gateway (initiate, IPN webhook, validate, refund, refund status),
+ * Part 2 — QR Vending (generate, validate, refund), and Part 3 — Mobile
+ * Deep Links (turning a QR into a deep link for native apps).
  */
 
 namespace App\Http\Controllers;

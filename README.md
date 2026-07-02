@@ -1,4 +1,4 @@
-# Laravel FastPay Payment Gateway & QR SDK
+# Laravel FastPay SDK — Payment Gateway, QR Vending & Mobile Deep Links
 
 <p>
 <a href="https://packagist.org/packages/nizaamomer/laravel-fastpay"><img src="https://img.shields.io/packagist/v/nizaamomer/laravel-fastpay.svg?style=flat-square&label=Packagist&color=orange" alt="Latest Version on Packagist"></a>
@@ -9,7 +9,7 @@
 <a href="LICENSE.md"><img src="https://img.shields.io/packagist/l/nizaamomer/laravel-fastpay.svg?style=flat-square&color=success" alt="License"></a>
 </p>
 
-A modern Laravel SDK for [FastPay Iraq](https://www.fast-pay.iq) — **payment gateway**, **QR vending payments**, and **refunds** in one package, with typed DTOs, enums, multi-store support, automatic status persistence, and mobile deep-link support for Android/iOS/Flutter.
+A modern Laravel SDK for [FastPay Iraq](https://www.fast-pay.iq) — one package covering all three ways FastPay lets you accept money: **1) a redirect-based Payment Gateway for the web**, **2) QR Vending for kiosks/POS**, and **3) Mobile Deep Links for native Android/iOS/Flutter apps** — plus refunds, typed DTOs, multi-store support, and automatic status persistence.
 
 Built by [Nizaam Omer](https://nizaamomer.com) — [nizaamomer.com](https://nizaamomer.com)
 
@@ -18,15 +18,19 @@ Built by [Nizaam Omer](https://nizaamomer.com) — [nizaamomer.com](https://niza
 - [Why one package?](#why-one-package)
 - [Requirements](#requirements)
 - [Installation](#installation)
-- [Payment Gateway](#payment-gateway)
+- [Part 1 — Payment Gateway (Web)](#part-1--payment-gateway-web)
   - [Initiating a payment](#initiating-a-payment)
   - [The IPN webhook — never trust the payload](#the-ipn-webhook--never-trust-the-payload)
   - [Validating a payment](#validating-a-payment)
   - [Refunding a payment](#refunding-a-payment)
   - [Checking refund status](#checking-refund-status)
   - [Missed notifications: the sync command](#missed-notifications-the-sync-command)
-- [QR Vending](#qr-vending)
-- [Mobile Deep Links](#mobile-deep-links)
+- [Part 2 — QR Vending](#part-2--qr-vending)
+  - [Generating a QR](#generating-a-qr)
+  - [Validating & refunding a QR payment](#validating--refunding-a-qr-payment)
+- [Part 3 — Mobile Deep Links](#part-3--mobile-deep-links)
+  - [Building the deep link](#building-the-deep-link)
+  - [Handling the callback in your app](#handling-the-callback-in-your-app)
 - [Automatic persistence](#automatic-persistence)
 - [Full example](#full-example)
 - [Security](#security)
@@ -38,7 +42,7 @@ Built by [Nizaam Omer](https://nizaamomer.com) — [nizaamomer.com](https://niza
 
 ## Why one package?
 
-The payment gateway and QR vending APIs are two different FastPay products with two different base URLs, but they share the same store credentials, the same response envelope quirks, and the same validation/refund shape — splitting them into separate packages would mean re-solving the same HTTP plumbing twice. `FastpayPayment` handles the hosted payment gateway (redirect-based checkout), `FastpayQr` handles QR/vending payments, both built on the same underlying HTTP client and store configuration.
+All three parts share the same store credentials, the same response envelope quirks, and the same validation/refund shape — splitting them into separate packages would mean re-solving the same HTTP plumbing three times over. `FastpayPayment` covers **Part 1 (Payment Gateway)** and doubles as the validate/refund API for **Part 2 (QR Vending)** via `FastpayQr`; **Part 3 (Mobile Deep Links)** is a thin, dependency-free helper that turns a Part 2 QR into a URL your native app can open. All three sit on the same underlying HTTP client and store configuration.
 
 ## Requirements
 
@@ -71,11 +75,14 @@ FASTPAY_STORE_ID=your-store-id                 # from Store Configuration in the
 FASTPAY_STORE_PASSWORD=your-store-password     # from Store Configuration — keep this out of version control
 FASTPAY_REFUND_SECRET_KEY=your-refund-key      # optional, only needed for gateway refunds — found under Store Details
 FASTPAY_CURRENCY=IQD                           # FastPay currently only supports IQD
-FASTPAY_SUCCESS_URL=https://your-app.test/checkout/success   # where FastPay redirects on a successful payment
-FASTPAY_CANCEL_URL=https://your-app.test/checkout/cancel     # where FastPay redirects on a cancelled payment
-FASTPAY_CALLBACK_URL=https://your-app.test/fastpay/ipn       # where FastPay POSTs the IPN on successful payments
+FASTPAY_SUCCESS_URL=https://your-app.test/checkout/success   # Part 1 only: where FastPay redirects on success
+FASTPAY_CANCEL_URL=https://your-app.test/checkout/cancel     # Part 1 only: where FastPay redirects on cancel
+FASTPAY_CALLBACK_URL=https://your-app.test/fastpay/ipn       # Part 1 only: where FastPay POSTs the IPN
 ```
 
+`success_url`/`cancel_url`/`callback_url` only apply to Part 1 (the web redirect flow). Parts 2 and 3 have no equivalent — the FastPay app talks to your own app's deep-link callback scheme directly instead (see [Part 3](#part-3--mobile-deep-links)).
+
+<!--
 ### Multiple stores
 
 Add more entries under `stores` in `config/fastpay.php` to accept payments through multiple FastPay merchant stores, then pass the store name as the last argument of any SDK call:
@@ -84,7 +91,13 @@ Add more entries under `stores` in `config/fastpay.php` to accept payments throu
 FastpayPayment::initiate($orderId, $cart, store: 'second_store');
 ```
 
-## Payment Gateway
+-->
+
+## Part 1 — Payment Gateway (Web)
+
+For a normal web checkout: you redirect the customer to a FastPay-hosted payment page, and they land back on your `success_url` or `cancel_url` afterward.
+
+> **Note:** FastPay has no "cancel payment" API — `cancel_url` is purely where the browser is redirected if the customer backs out; there's nothing to call on your side for that outcome. The only merchant-initiated actions are initiate, validate, and refund.
 
 ### Initiating a payment
 
@@ -175,25 +188,35 @@ to re-validate every pending payment directly against FastPay. Schedule it in `b
 })
 ```
 
-## QR Vending
+## Part 2 — QR Vending
 
-For vending machines, kiosks, POS screens, or a mobile app where the customer scans (or deep-links into) a QR instead of visiting a hosted payment page. Minimum amount is 1000 IQD.
+For vending machines, kiosks, and POS screens: instead of redirecting to a web page, you generate a QR the customer scans with the FastPay app. Minimum amount is 1000 IQD.
+
+### Generating a QR
 
 ```php
 use Nizaamomer\LaravelFastpay\Facades\FastpayQr;
 
 $qr = FastpayQr::generate($orderId, 1500.00);
 
-$qr->qrUrl;   // image URL to display for scanning
-$qr->qrText;  // raw token — also usable to build a mobile deep link
+$qr->qrUrl;   // image URL — display this for the customer to scan
+$qr->qrText;  // raw token — hand this to Part 3 if you also want an in-app deep link
+```
 
-FastpayQr::validate($orderId);                              // same shape as the gateway's validate()
+### Validating & refunding a QR payment
+
+Same shape as Part 1, just called on `FastpayQr` instead:
+
+```php
+FastpayQr::validate($orderId);                              // same DTO as the gateway's validate()
 FastpayQr::refund($orderId, '+9641000000004', 1500.00);      // no refund secret key needed here, unlike the gateway
 ```
 
-## Mobile Deep Links
+## Part 3 — Mobile Deep Links
 
-If your Android/iOS/Flutter app wants to open the FastPay app directly instead of a web QR, build the deep link from a generated QR:
+For a native Android/iOS/Flutter app: skip the "scan a QR with your camera" step and open the FastPay app directly from within your own app. This builds on a Part 2 QR — generate one first, then turn it into a deep link.
+
+### Building the deep link
 
 ```php
 $qr = FastpayQr::generate($orderId, 1500.00);
@@ -202,13 +225,17 @@ $deepLink = $qr->deepLink(clientUri: 'MyApp', orderId: $orderId);
 // appFpp://fast-pay.cash/qrpay?qrdata=...&clientUri=appfpclientMyApp&transactionId=...
 ```
 
-Opening that URL launches the FastPay app directly to the payment screen if installed, or you fall back to the app store if not (that fallback logic lives in your native app, not this package). After payment, FastPay redirects back to your app via the `appfpclientMyApp://` scheme you register in your Android manifest / iOS `Info.plist`, with `transactionStatus`, `transactionId`, and `amount` as query parameters.
+Opening that URL launches the FastPay app directly to the payment screen if installed, or falls back to the app store if not (that fallback logic lives in your native app, not this package).
 
-The native-side registration and callback handling (Kotlin/Swift/Dart) is FastPay's own platform-specific integration, documented at [developer.fast-pay.iq](https://developer.fast-pay.iq) — this package only builds the correctly-formatted deep link URL from the backend.
+### Handling the callback in your app
+
+After payment, FastPay redirects back to **your** app via the `appfpclientMyApp://` scheme you register in your Android manifest / iOS `Info.plist` / Flutter `app_links` setup, with `transactionStatus`, `transactionId`, and `amount` as query parameters. This is a **native, client-side callback** — it never touches your Laravel backend, so nothing on the server side needs to handle it directly. Once your app receives it, call `FastpayQr::validate($orderId)` from your backend (same as Part 2) to confirm the outcome server-side before marking anything as paid.
+
+The native-side registration and callback handling (Kotlin/Swift/Dart) is FastPay's own platform-specific integration, documented at [developer.fast-pay.iq](https://developer.fast-pay.iq) — this package only builds the correctly-formatted deep link URL from your backend.
 
 ## Automatic persistence
 
-Every `initiate()`, `validate()`, and `refund()` call fires an event (`PaymentInitiated`, `PaymentValidated`, `PaymentRefunded`) that this package listens to and upserts into `fastpay_payments`/`fastpay_refunds` automatically — no manual tracking code required. Link your own models via the `payable` polymorphic relation:
+Every `initiate()`, `validate()`, and `refund()` call — from any of the three parts — fires an event (`PaymentInitiated`, `PaymentValidated`, `PaymentRefunded`) that this package listens to and upserts into `fastpay_payments`/`fastpay_refunds` automatically — no manual tracking code required. Link your own models via the `payable` polymorphic relation:
 
 ```php
 use Nizaamomer\LaravelFastpay\Models\FastpayPayment;
@@ -218,7 +245,7 @@ FastpayPayment::where('order_id', $orderId)->first()?->payable()->associate($ord
 
 ## Full example
 
-[`docs/examples/PaymentController.php`](docs/examples/PaymentController.php) is a complete, heavily-commented controller covering every public method — initiating a payment, the IPN webhook, the success/cancel return page, refunding, refund status, and the full QR vending + deep-link flow. It's illustrative (not autoloaded), so copy what you need into your own app.
+[`docs/examples/PaymentController.php`](docs/examples/PaymentController.php) is a complete, heavily-commented controller covering every public method from all three parts — initiating a web payment, the IPN webhook, the success/cancel return page, refunding, refund status, QR generation/validation, and the deep-link flow. It's illustrative (not autoloaded), so copy what you need into your own app.
 
 ## Security
 
