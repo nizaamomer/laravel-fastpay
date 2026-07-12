@@ -48,4 +48,12 @@ class FastpayException extends RuntimeException
             .'(found under Store Details in the Merchant Panel) to process gateway refunds.'
         );
     }
+
+    public static function missingClientUri(): InvalidArgumentException
+    {
+        return new InvalidArgumentException(
+            'No clientUri was passed to deepLink() and config("fastpay.client_uri") (FASTPAY_CLIENT_URI) is not set — '
+            .'this is the scheme suffix your app registers to receive the FastPay callback, see the README\'s Part 3.'
+        );
+    }
 }

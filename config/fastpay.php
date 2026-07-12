@@ -86,6 +86,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Mobile Deep Link Client URI
+    |--------------------------------------------------------------------------
+    |
+    | Default "clientUri" for QrData::deepLink() (see Part 3 of the README)
+    | — the suffix FastPay appends to build your app's callback scheme:
+    | appfpclient{this}://. deepLink() reads this automatically, so you only
+    | need to pass $orderId on each call. Required unless every deepLink()
+    | call passes clientUri explicitly.
+    |
+    */
+    'client_uri' => env('FASTPAY_CLIENT_URI'),
+
+    /*
+    |--------------------------------------------------------------------------
     | HTTP Client
     |--------------------------------------------------------------------------
     |

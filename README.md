@@ -78,9 +78,14 @@ FASTPAY_CURRENCY=IQD                           # FastPay currently only supports
 FASTPAY_SUCCESS_URL=https://your-app.test/checkout/success   # Part 1 only: where FastPay redirects on success
 FASTPAY_CANCEL_URL=https://your-app.test/checkout/cancel     # Part 1 only: where FastPay redirects on cancel
 FASTPAY_CALLBACK_URL=https://your-app.test/fastpay/ipn       # Part 1 only: where FastPay POSTs the IPN
+FASTPAY_CLIENT_URI=YourAppName                 # Part 3 only: your app's deep-link callback scheme suffix
 ```
 
-`success_url`/`cancel_url`/`callback_url` only apply to Part 1 (the web redirect flow). Parts 2 and 3 have no equivalent — the FastPay app talks to your own app's deep-link callback scheme directly instead (see [Part 3](#part-3--mobile-deep-links)).
+All three parts share the same `FASTPAY_STORE_ID`/`FASTPAY_STORE_PASSWORD` — no separate credentials or "enable this part" flag needed per part. Each `.env` key above is only read by the part that uses it, so a web-only integration can skip `FASTPAY_CLIENT_URI` entirely (it's simply never read), and a QR/mobile-only integration can skip `FASTPAY_SUCCESS_URL`/`FASTPAY_CANCEL_URL`/`FASTPAY_CALLBACK_URL`. Using a part *is* enabling it — there's nothing else to toggle:
+
+- `success_url`/`cancel_url`/`callback_url` — Part 1 only (the web redirect flow).
+- `client_uri` — Part 3 only, and only required once you actually call `deepLink()` (see [Part 3](#part-3--mobile-deep-links)); omit it entirely if your app never opens the FastPay app directly.
+- Parts 2 and 3 otherwise need no config beyond the shared store credentials above.
 
 <!--
 ### Multiple stores
@@ -212,6 +217,19 @@ FastpayQr::validate($orderId);                              // same DTO as the g
 FastpayQr::refund($orderId, '+9641000000004', 1500.00);      // no refund secret key needed here, unlike the gateway
 ```
 
+### Polling a QR payment's status
+
+`validate()` throws when the order hasn't been paid yet, which is awkward for a polling loop — every "still waiting" check becomes a try/catch. `status()` is built for that instead: it always returns HTTP 200, even for an unpaid or declined order, with the outcome in `paymentStatus`:
+
+```php
+$status = FastpayQr::status($orderId);
+
+$status->paymentStatus; // 'PAID' | 'UNPAID' | 'DECLINED'
+$status->isPaid();      // bool
+```
+
+Use `status()` for polling from your app; keep using `validate()` for the one authoritative check before you fulfil an order (e.g. from the IPN webhook), since it also fires the `PaymentValidated` event that persists to `fastpay_payments`.
+
 ## Part 3 — Mobile Deep Links
 
 For a native Android/iOS/Flutter app: skip the "scan a QR with your camera" step and open the FastPay app directly from within your own app. This builds on a Part 2 QR — generate one first, then turn it into a deep link.
@@ -221,9 +239,17 @@ For a native Android/iOS/Flutter app: skip the "scan a QR with your camera" step
 ```php
 $qr = FastpayQr::generate($orderId, 1500.00);
 
-$deepLink = $qr->deepLink(clientUri: 'MyApp', orderId: $orderId);
+$deepLink = $qr->deepLink($orderId);
 // appFpp://fast-pay.cash/qrpay?qrdata=...&clientUri=appfpclientMyApp&transactionId=...
 ```
+
+`deepLink()` reads its `clientUri` from `config('fastpay.client_uri')` (backed by `FASTPAY_CLIENT_URI` in `.env`) by default — set that once per app and every call stays this simple. Pass a second argument only if a specific call needs a different scheme than your configured default (e.g. a multi-brand app):
+
+```php
+$deepLink = $qr->deepLink($orderId, clientUri: 'OtherBrandApp');
+```
+
+Calling `deepLink()` with neither an explicit `clientUri` nor `FASTPAY_CLIENT_URI` configured throws — this string is required for FastPay to know which scheme to call back into.
 
 Opening that URL launches the FastPay app directly to the payment screen if installed, or falls back to the app store if not (that fallback logic lives in your native app, not this package).
 

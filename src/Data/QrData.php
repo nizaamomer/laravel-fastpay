@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nizaamomer\LaravelFastpay\Data;
 
+use Nizaamomer\LaravelFastpay\Exceptions\FastpayException;
 use Nizaamomer\LaravelFastpay\Support\DeepLink;
 
 final readonly class QrData
@@ -27,9 +28,19 @@ final readonly class QrData
     /**
      * Builds the appFpp:// deep link a mobile app can open to pay this QR
      * inside the FastPay app. See DeepLink for details.
+     *
+     * $clientUri defaults to config('fastpay.client_uri') (FASTPAY_CLIENT_URI)
+     * — pass it explicitly only if this call needs a different scheme than
+     * your app's configured default (e.g. a multi-brand app).
      */
-    public function deepLink(string $clientUri, string $orderId): string
+    public function deepLink(string $orderId, ?string $clientUri = null): string
     {
+        $clientUri ??= (string) config('fastpay.client_uri');
+
+        if ($clientUri === '') {
+            throw FastpayException::missingClientUri();
+        }
+
         return DeepLink::qrPay($this->qrText, $clientUri, $orderId);
     }
 }
