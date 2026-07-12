@@ -57,7 +57,7 @@ final class FastpayPaymentService implements FastpayPaymentServiceContract
             'success_url' => $successUrl ?? config('fastpay.success_url'),
             'cancel_url' => $cancelUrl ?? config('fastpay.cancel_url'),
             'callback_url' => $callbackUrl ?? config('fastpay.callback_url'),
-            'cart' => array_map(fn (CartItem $item): array => $item->toArray(), $items),
+            'cart' => json_encode(array_map(fn (CartItem $item): array => $item->toArray(), $items)),
         ], fn ($value) => $value !== null));
 
         $initiation = PaymentInitiationData::fromArray($data);
