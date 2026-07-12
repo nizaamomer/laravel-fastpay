@@ -7,6 +7,7 @@ namespace Nizaamomer\LaravelFastpay\Services;
 use Nizaamomer\LaravelFastpay\Contracts\FastpayQrServiceContract;
 use Nizaamomer\LaravelFastpay\Data\PaymentValidationData;
 use Nizaamomer\LaravelFastpay\Data\QrData;
+use Nizaamomer\LaravelFastpay\Data\QrStatusData;
 use Nizaamomer\LaravelFastpay\Data\RefundData;
 use Nizaamomer\LaravelFastpay\Events\PaymentRefunded;
 use Nizaamomer\LaravelFastpay\Events\PaymentValidated;
@@ -76,6 +77,28 @@ final class FastpayQrService implements FastpayQrServiceContract
         PaymentValidated::dispatch($validation, $store);
 
         return $validation;
+    }
+
+    /**
+     * Polls the current status of a QR order. Unlike validate(), this always
+     * returns HTTP 200 — even for unpaid/declined orders — with the outcome
+     * in paymentStatus (PAID/UNPAID/DECLINED), so no try/catch is needed to
+     * distinguish "not paid yet" from a genuine request failure.
+     */
+    public function status(string $orderId, ?string $store = null): QrStatusData
+    {
+        $this->assertValidOrderId($orderId);
+
+        $store ??= (string) config('fastpay.default');
+        $config = $this->storeConfig($store);
+
+        $data = $this->post($store, 'qr', 'QR payment status', '/api/v1/public/vending/status', [
+            'storeId' => $config['store_id'],
+            'storePassword' => $config['store_password'],
+            'orderId' => $orderId,
+        ]);
+
+        return QrStatusData::fromArray($data);
     }
 
     /**

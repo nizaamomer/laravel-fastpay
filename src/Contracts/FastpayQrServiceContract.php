@@ -6,6 +6,7 @@ namespace Nizaamomer\LaravelFastpay\Contracts;
 
 use Nizaamomer\LaravelFastpay\Data\PaymentValidationData;
 use Nizaamomer\LaravelFastpay\Data\QrData;
+use Nizaamomer\LaravelFastpay\Data\QrStatusData;
 use Nizaamomer\LaravelFastpay\Data\RefundData;
 
 interface FastpayQrServiceContract
@@ -13,6 +14,8 @@ interface FastpayQrServiceContract
     public function generate(string $orderId, float $amount, ?string $store = null): QrData;
 
     public function validate(string $orderId, ?string $store = null): PaymentValidationData;
+
+    public function status(string $orderId, ?string $store = null): QrStatusData;
 
     public function refund(string $orderId, string $msisdn, float $amount, ?string $store = null): RefundData;
 }
