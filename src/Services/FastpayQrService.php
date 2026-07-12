@@ -46,9 +46,7 @@ final class FastpayQrService implements FastpayQrServiceContract
         $data = $this->post($store, 'qr', 'QR generation', '/api/v1/public/vending/qr', [
             'storeId' => $config['store_id'],
             'storePassword' => $config['store_password'],
-            // Capitalisation is FastPay's, not a typo: the generate endpoint
-            // wants "orderID" while validate wants "orderId".
-            'orderID' => $orderId,
+            'orderId' => $orderId,
             'billAmount' => (int) round($amount),
             'currency' => (string) config('fastpay.currency', 'IQD'),
         ]);
