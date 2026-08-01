@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Nizaamomer\LaravelFastpay\Services;
 
+use Illuminate\Support\Facades\Log;
 use Nizaamomer\LaravelFastpay\Contracts\FastpayQrServiceContract;
 use Nizaamomer\LaravelFastpay\Data\PaymentValidationData;
 use Nizaamomer\LaravelFastpay\Data\QrData;
 use Nizaamomer\LaravelFastpay\Data\QrStatusData;
 use Nizaamomer\LaravelFastpay\Data\RefundData;
-use Illuminate\Support\Facades\Log;
 use Nizaamomer\LaravelFastpay\Events\PaymentRefunded;
 use Nizaamomer\LaravelFastpay\Events\PaymentValidated;
 use Nizaamomer\LaravelFastpay\Exceptions\FastpayException;
