@@ -9,6 +9,7 @@ use Nizaamomer\LaravelFastpay\Data\PaymentValidationData;
 use Nizaamomer\LaravelFastpay\Data\QrData;
 use Nizaamomer\LaravelFastpay\Data\QrStatusData;
 use Nizaamomer\LaravelFastpay\Data\RefundData;
+use Illuminate\Support\Facades\Log;
 use Nizaamomer\LaravelFastpay\Events\PaymentRefunded;
 use Nizaamomer\LaravelFastpay\Events\PaymentValidated;
 use Nizaamomer\LaravelFastpay\Exceptions\FastpayException;
@@ -84,8 +85,21 @@ final class FastpayQrService implements FastpayQrServiceContract
      * returns HTTP 200 — even for unpaid/declined orders — with the outcome
      * in paymentStatus (PAID/UNPAID/DECLINED), so no try/catch is needed to
      * distinguish "not paid yet" from a genuine request failure.
+     *
+     * $confirmIfPaid: when true and the result is PAID, also calls validate()
+     * once as a best-effort side effect. That's the only thing that (a)
+     * satisfies FastPay's documented requirement to re-confirm a result
+     * before trusting it, matching what you're supposed to do with an IPN,
+     * and (b) fires the PaymentValidated event, which is what actually
+     * persists customer_name/customer_mobile_number via
+     * PersistFastpayPayment — status() alone never triggers either. A
+     * failure here is logged and swallowed: status() has already succeeded,
+     * so a hiccup in this enrichment step must never make an already-paid
+     * order look unpaid to the caller. Defaults to false so status()'s
+     * existing "cheap, side-effect-free, safe to poll" contract is
+     * unchanged for anyone not opting in.
      */
-    public function status(string $orderId, ?string $store = null): QrStatusData
+    public function status(string $orderId, ?string $store = null, bool $confirmIfPaid = false): QrStatusData
     {
         $this->assertValidOrderId($orderId);
 
@@ -98,7 +112,21 @@ final class FastpayQrService implements FastpayQrServiceContract
             'orderId' => $orderId,
         ]);
 
-        return QrStatusData::fromArray($data);
+        $status = QrStatusData::fromArray($data);
+
+        if ($confirmIfPaid && $status->isPaid()) {
+            try {
+                $this->validate($orderId, $store);
+            } catch (\Throwable $e) {
+                Log::warning('[FastPay] confirmIfPaid validate() failed after status()=PAID', [
+                    'order_id' => $orderId,
+                    'store' => $store,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return $status;
     }
 
     /**

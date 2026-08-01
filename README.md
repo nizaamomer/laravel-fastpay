@@ -230,6 +230,14 @@ $status->isPaid();      // bool
 
 Use `status()` for polling from your app; keep using `validate()` for the one authoritative check before you fulfil an order (e.g. from the IPN webhook), since it also fires the `PaymentValidated` event that persists to `fastpay_payments`.
 
+**If your integration only ever polls `status()` and never calls `validate()` on its own** (no IPN webhook configured for QR, no separate success-page hook — just an app polling until paid, which is the common case), `customer_name`/`customer_mobile_number` will never get saved, because `status()` alone never fires `PaymentValidated`. Pass `confirmIfPaid: true` to have `status()` call `validate()` for you, once, the moment it observes `PAID`:
+
+```php
+$status = FastpayQr::status($orderId, confirmIfPaid: true);
+```
+
+This is opt-in and defaults to `false` — without it, `status()` keeps its original cheap, side-effect-free contract, safe to call on every poll. With it, the extra `validate()` call only fires once (right when the result flips to `PAID`) and is best-effort: if it fails, the failure is logged and swallowed, so a hiccup in this enrichment step never makes an already-paid order look unpaid to your app.
+
 ## Part 3 — Mobile Deep Links
 
 For a native Android/iOS/Flutter app: skip the "scan a QR with your camera" step and open the FastPay app directly from within your own app. This builds on a Part 2 QR — generate one first, then turn it into a deep link.

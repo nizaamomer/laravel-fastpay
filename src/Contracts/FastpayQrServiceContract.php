@@ -15,7 +15,7 @@ interface FastpayQrServiceContract
 
     public function validate(string $orderId, ?string $store = null): PaymentValidationData;
 
-    public function status(string $orderId, ?string $store = null): QrStatusData;
+    public function status(string $orderId, ?string $store = null, bool $confirmIfPaid = false): QrStatusData;
 
     public function refund(string $orderId, string $msisdn, float $amount, ?string $store = null): RefundData;
 }

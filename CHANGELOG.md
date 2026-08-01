@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `FastpayQr::status()` + `QrStatusData` DTO, wrapping the QR vending "Get Payment Status" endpoint (`/api/v1/public/vending/status`). Unlike `validate()`, it always returns HTTP 200 — even for unpaid/declined orders — with the outcome in `paymentStatus` (`PAID`/`UNPAID`/`DECLINED`) and an `isPaid()` helper, so polling no longer needs a try/catch to distinguish "not paid yet" from a genuine request failure.
+- `FastpayQr::status()` gained an opt-in `$confirmIfPaid = false` parameter. When true and the polled result is `PAID`, it calls `validate()` once as a best-effort side effect (failures are logged and swallowed) — the only thing that persists `customer_name`/`customer_mobile_number` to `fastpay_payments` for integrations that only ever poll `status()` and never call `validate()` on their own.
 - `client_uri` key in `config/fastpay.php`, backed by `FASTPAY_CLIENT_URI` — the default `clientUri` for `QrData::deepLink()` (see below). Not required unless your app actually calls `deepLink()`.
 
 ### Changed
