@@ -11,7 +11,7 @@
 
 A modern Laravel SDK for [FastPay Iraq](https://www.fast-pay.iq) — one package covering all three ways FastPay lets you accept money: **1) a redirect-based Payment Gateway for the web**, **2) QR Vending for kiosks/POS**, and **3) Mobile Deep Links for native Android/iOS/Flutter apps** — plus refunds, typed DTOs, multi-store support, and automatic status persistence.
 
-Built by [Nizaam Omer](https://nizaamomer.com) — [nizaamomer.com](https://nizaamomer.com)
+Built by [Nizam Omer](https://nizaamomer.com) — [nizaamomer.com](https://nizaamomer.com)
 
 ## Table of Contents
 
@@ -310,7 +310,7 @@ See [CHANGELOG.md](CHANGELOG.md) for what's changed in each release.
 
 ## Author
 
-**Nizaam Omer** — [nizaamomer.com](https://nizaamomer.com) · [nizaamomer@gmail.com](mailto:nizaamomer@gmail.com)
+**Nizam Omer** — [nizaamomer.com](https://nizaamomer.com) · [nizaamomer@gmail.com](mailto:nizaamomer@gmail.com)
 
 ## License
 
